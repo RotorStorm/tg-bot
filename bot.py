@@ -5,7 +5,7 @@ from telegram.ext import (
     Application, CommandHandler, MessageHandler,
     CallbackQueryHandler, ConversationHandler, filters, ContextTypes
 )
-from config import BOT_TOKEN, ADMIN_ID, PAYMENT_DETAILS, GROUP_IDS, CHANNEL_IDS, REPOST_INTERVAL_SECONDS, MAX_TEXT_LENGTH
+from config import BOT_TOKEN, ADMIN_IDS, PAYMENT_DETAILS, GROUP_IDS, CHANNEL_IDS, REPOST_INTERVAL_SECONDS, MAX_TEXT_LENGTH
 
 logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -208,17 +208,17 @@ async def receive_receipt(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"📋 Текст объявления:\n{ad_data['text']}"
     )
 
-    await context.bot.send_message(
-        chat_id=ADMIN_ID,
-        text=admin_text,
-        parse_mode="HTML",
-        reply_markup=admin_keyboard
-    )
-
-    if update.message.photo:
-        await context.bot.send_photo(chat_id=ADMIN_ID, photo=receipt_file_id, caption="💰 Подтверждение оплаты")
-    else:
-        await context.bot.send_document(chat_id=ADMIN_ID, document=receipt_file_id, caption="💰 Подтверждение оплаты")
+    for admin_id in ADMIN_IDS:
+        await context.bot.send_message(
+            chat_id=admin_id,
+            text=admin_text,
+            parse_mode="HTML",
+            reply_markup=admin_keyboard
+        )
+        if update.message.photo:
+            await context.bot.send_photo(chat_id=admin_id, photo=receipt_file_id, caption="💰 Подтверждение оплаты")
+        else:
+            await context.bot.send_document(chat_id=admin_id, document=receipt_file_id, caption="💰 Подтверждение оплаты")
 
     return ConversationHandler.END
 
@@ -231,7 +231,7 @@ async def approve_ad(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
 
-    if update.effective_user.id != ADMIN_ID:
+    if update.effective_user.id not in ADMIN_IDS:
         await query.answer("⛔ Нет прав.", show_alert=True)
         return
 
@@ -259,14 +259,16 @@ async def approve_ad(update: Update, context: ContextTypes.DEFAULT_TYPE):
             text="🎉 Ваше объявление опубликовано!\n\nСпасибо за использование нашего сервиса.",
             reply_markup=MAIN_MENU
         )
-        await context.bot.send_message(
-            chat_id=ADMIN_ID,
-            text=f"✅ Объявление от {ad_data['first_name']} ({username_display}) опубликовано в {len(ALL_CHATS)} чатах."
-        )
+        for admin_id in ADMIN_IDS:
+            await context.bot.send_message(
+                chat_id=admin_id,
+                text=f"✅ Объявление от {ad_data['first_name']} ({username_display}) опубликовано в {len(ALL_CHATS)} чатах."
+            )
 
     except Exception as e:
         logger.error(f"Ошибка публикации: {e}")
-        await context.bot.send_message(chat_id=ADMIN_ID, text=f"❌ Ошибка: {e}")
+        for admin_id in ADMIN_IDS:
+            await context.bot.send_message(chat_id=admin_id, text=f"❌ Ошибка: {e}")
     finally:
         pending_ads.pop(user_id, None)
 
@@ -275,7 +277,7 @@ async def reject_ad(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
 
-    if update.effective_user.id != ADMIN_ID:
+    if update.effective_user.id not in ADMIN_IDS:
         await query.answer("⛔ Нет прав.", show_alert=True)
         return
 
@@ -302,7 +304,7 @@ async def problem_ad(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
 
-    if update.effective_user.id != ADMIN_ID:
+    if update.effective_user.id not in ADMIN_IDS:
         await query.answer("⛔ Нет прав.", show_alert=True)
         return
 
@@ -345,7 +347,7 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def post_ad_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_user.id != ADMIN_ID:
+    if update.effective_user.id not in ADMIN_IDS:
         await update.message.reply_text("⛔ Нет прав.")
         return
     await update.message.reply_text(f"⏳ Обновляю кнопку в {len(ALL_CHATS)} чатах...")
